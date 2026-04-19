@@ -126,26 +126,30 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 	}
 
 	response.Success(c, checkoutInfoResponse{
-		Methods:              limitsResp.Methods,
-		GlobalMin:            limitsResp.GlobalMin,
-		GlobalMax:            limitsResp.GlobalMax,
-		Plans:                planList,
-		BalanceDisabled:      cfg.BalanceDisabled,
-		HelpText:             cfg.HelpText,
-		HelpImageURL:         cfg.HelpImageURL,
-		StripePublishableKey: cfg.StripePublishableKey,
+		Methods:                   limitsResp.Methods,
+		GlobalMin:                 limitsResp.GlobalMin,
+		GlobalMax:                 limitsResp.GlobalMax,
+		Plans:                     planList,
+		BalanceDisabled:           cfg.BalanceDisabled,
+		BalanceRechargeMultiplier: cfg.BalanceRechargeMultiplier,
+		RechargeFeeRate:           cfg.RechargeFeeRate,
+		HelpText:                  cfg.HelpText,
+		HelpImageURL:              cfg.HelpImageURL,
+		StripePublishableKey:      cfg.StripePublishableKey,
 	})
 }
 
 type checkoutInfoResponse struct {
-	Methods              map[string]service.MethodLimits `json:"methods"`
-	GlobalMin            float64                         `json:"global_min"`
-	GlobalMax            float64                         `json:"global_max"`
-	Plans                []checkoutPlan                  `json:"plans"`
-	BalanceDisabled      bool                            `json:"balance_disabled"`
-	HelpText             string                          `json:"help_text"`
-	HelpImageURL         string                          `json:"help_image_url"`
-	StripePublishableKey string                          `json:"stripe_publishable_key"`
+	Methods                   map[string]service.MethodLimits `json:"methods"`
+	GlobalMin                 float64                         `json:"global_min"`
+	GlobalMax                 float64                         `json:"global_max"`
+	Plans                     []checkoutPlan                  `json:"plans"`
+	BalanceDisabled           bool                            `json:"balance_disabled"`
+	BalanceRechargeMultiplier float64                         `json:"balance_recharge_multiplier"`
+	RechargeFeeRate           float64                         `json:"recharge_fee_rate"`
+	HelpText                  string                          `json:"help_text"`
+	HelpImageURL              string                          `json:"help_image_url"`
+	StripePublishableKey      string                          `json:"stripe_publishable_key"`
 }
 
 type checkoutPlan struct {
@@ -202,6 +206,10 @@ type CreateOrderRequest struct {
 	PaymentType string  `json:"payment_type" binding:"required"`
 	OrderType   string  `json:"order_type"`
 	PlanID      int64   `json:"plan_id"`
+	// IsMobile lets the frontend declare its mobile status directly. When
+	// nil we fall back to User-Agent heuristics (which miss iPadOS / some
+	// embedded browsers that strip the "Mobile" keyword).
+	IsMobile *bool `json:"is_mobile,omitempty"`
 }
 
 // CreateOrder creates a new payment order.
@@ -218,12 +226,16 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	mobile := isMobile(c)
+	if req.IsMobile != nil {
+		mobile = *req.IsMobile
+	}
 	result, err := h.paymentService.CreateOrder(c.Request.Context(), service.CreateOrderRequest{
 		UserID:      subject.UserID,
 		Amount:      req.Amount,
 		PaymentType: req.PaymentType,
 		ClientIP:    c.ClientIP(),
-		IsMobile:    isMobile(c),
+		IsMobile:    mobile,
 		SrcHost:     c.Request.Host,
 		SrcURL:      c.Request.Referer(),
 		OrderType:   req.OrderType,
@@ -335,6 +347,16 @@ func (h *PaymentHandler) RequestRefund(c *gin.Context) {
 	response.Success(c, gin.H{"message": "refund requested"})
 }
 
+// GetRefundEligibleProviders returns provider instance IDs that allow user refund.
+func (h *PaymentHandler) GetRefundEligibleProviders(c *gin.Context) {
+	ids, err := h.configService.GetUserRefundEligibleInstanceIDs(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"provider_instance_ids": ids})
+}
+
 // VerifyOrderRequest is the request body for verifying a payment order.
 type VerifyOrderRequest struct {
 	OutTradeNo string `json:"out_trade_no" binding:"required"`
@@ -371,6 +393,7 @@ type PublicOrderResult struct {
 	Amount      float64 `json:"amount"`
 	PayAmount   float64 `json:"pay_amount"`
 	PaymentType string  `json:"payment_type"`
+	OrderType   string  `json:"order_type"`
 	Status      string  `json:"status"`
 }
 
@@ -394,6 +417,7 @@ func (h *PaymentHandler) VerifyOrderPublic(c *gin.Context) {
 		Amount:      order.Amount,
 		PayAmount:   order.PayAmount,
 		PaymentType: order.PaymentType,
+		OrderType:   order.OrderType,
 		Status:      order.Status,
 	})
 }

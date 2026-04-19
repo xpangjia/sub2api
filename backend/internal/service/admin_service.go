@@ -586,6 +586,15 @@ func (s *adminServiceImpl) assignDefaultSubscriptions(ctx context.Context, userI
 }
 
 func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *UpdateUserInput) (*User, error) {
+	// 校验用户专属分组倍率：必须 > 0（nil 合法，表示清除专属倍率）
+	if input.GroupRates != nil {
+		for groupID, rate := range input.GroupRates {
+			if rate != nil && *rate <= 0 {
+				return nil, fmt.Errorf("rate_multiplier must be > 0 (group_id=%d)", groupID)
+			}
+		}
+	}
+
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -811,6 +820,10 @@ func (s *adminServiceImpl) GetGroup(ctx context.Context, id int64) (*Group, erro
 }
 
 func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error) {
+	if input.RateMultiplier <= 0 {
+		return nil, errors.New("rate_multiplier must be > 0")
+	}
+
 	platform := input.Platform
 	if platform == "" {
 		platform = PlatformAnthropic
@@ -1050,6 +1063,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		group.Platform = input.Platform
 	}
 	if input.RateMultiplier != nil {
+		if *input.RateMultiplier <= 0 {
+			return nil, errors.New("rate_multiplier must be > 0")
+		}
 		group.RateMultiplier = *input.RateMultiplier
 	}
 	if input.IsExclusive != nil {
@@ -1286,6 +1302,11 @@ func (s *adminServiceImpl) BatchSetGroupRateMultipliers(ctx context.Context, gro
 	if s.userGroupRateRepo == nil {
 		return nil
 	}
+	for _, e := range entries {
+		if e.RateMultiplier <= 0 {
+			return fmt.Errorf("rate_multiplier must be > 0 (user_id=%d)", e.UserID)
+		}
+	}
 	return s.userGroupRateRepo.SyncGroupRateMultipliers(ctx, groupID, entries)
 }
 
@@ -1469,10 +1490,6 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 	accounts, result, err := s.accountRepo.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode)
 	if err != nil {
 		return nil, 0, err
-	}
-	now := time.Now()
-	for i := range accounts {
-		syncOpenAICodexRateLimitFromExtra(ctx, s.accountRepo, &accounts[i], now)
 	}
 	return accounts, result.Total, nil
 }

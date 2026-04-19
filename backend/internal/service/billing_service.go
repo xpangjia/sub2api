@@ -191,6 +191,9 @@ func (s *BillingService) initFallbackPricing() {
 	// Claude 4.6 Opus (与4.5同价)
 	s.fallbackPrices["claude-opus-4.6"] = s.fallbackPrices["claude-opus-4.5"]
 
+	// Claude 4.7 Opus (暂与4.6同价，待官方定价更新)
+	s.fallbackPrices["claude-opus-4.7"] = s.fallbackPrices["claude-opus-4.6"]
+
 	// Gemini 3.1 Pro
 	s.fallbackPrices["gemini-3.1-pro"] = &ModelPricing{
 		InputPricePerToken:         2e-6,   // $2 per MTok
@@ -278,6 +281,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 
 	// 按模型系列匹配
 	if strings.Contains(modelLower, "opus") {
+		if strings.Contains(modelLower, "4.7") || strings.Contains(modelLower, "4-7") {
+			return s.fallbackPrices["claude-opus-4.7"]
+		}
 		if strings.Contains(modelLower, "4.6") || strings.Contains(modelLower, "4-6") {
 			return s.fallbackPrices["claude-opus-4.6"]
 		}
@@ -442,8 +448,9 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 		})
 	}
 
-	if input.RateMultiplier <= 0 {
-		input.RateMultiplier = 1.0
+	// 保存时强制 > 0；若仍有负数泄漏（缓存/迁移残留），按 0 处理避免按 1x 误扣。
+	if input.RateMultiplier < 0 {
+		input.RateMultiplier = 0
 	}
 
 	var breakdown *CostBreakdown
@@ -487,8 +494,9 @@ func (s *BillingService) computeTokenBreakdown(
 	rateMultiplier float64, serviceTier string,
 	applyLongCtx bool,
 ) *CostBreakdown {
-	if rateMultiplier <= 0 {
-		rateMultiplier = 1.0
+	// 保存时强制 > 0；若仍有负数泄漏，按 0 处理避免按 1x 误扣。
+	if rateMultiplier < 0 {
+		rateMultiplier = 0
 	}
 
 	inputPrice := pricing.InputPricePerToken
@@ -825,9 +833,9 @@ func (s *BillingService) CalculateImageCost(model string, imageSize string, imag
 	// 计算总费用
 	totalCost := unitPrice * float64(imageCount)
 
-	// 应用倍率
-	if rateMultiplier <= 0 {
-		rateMultiplier = 1.0
+	// 应用倍率（保存时强制 > 0；负数按 0 处理避免按 1x 误扣）
+	if rateMultiplier < 0 {
+		rateMultiplier = 0
 	}
 	actualCost := totalCost * rateMultiplier
 
