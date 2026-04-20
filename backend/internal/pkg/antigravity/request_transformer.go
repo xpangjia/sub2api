@@ -135,14 +135,20 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	tools := buildTools(claudeReq.Tools)
 
 	// 5. 构建内部请求
+	toolConfig := &GeminiToolConfig{
+		FunctionCallingConfig: &GeminiFunctionCallingConfig{
+			Mode: "VALIDATED",
+		},
+	}
+	if hasFunctionDeclarations(tools) {
+		enabled := true
+		toolConfig.IncludeServerSideToolInvocations = &enabled
+	}
+
 	innerRequest := GeminiRequest{
 		Contents: contents,
 		// 总是设置 toolConfig，与官方客户端一致
-		ToolConfig: &GeminiToolConfig{
-			FunctionCallingConfig: &GeminiFunctionCallingConfig{
-				Mode: "VALIDATED",
-			},
-		},
+		ToolConfig: toolConfig,
 		// 总是生成 sessionId，基于用户消息内容
 		SessionID: generateStableSessionID(contents),
 	}
@@ -756,4 +762,18 @@ func buildTools(tools []ClaudeTool) []GeminiToolDeclaration {
 	}
 
 	return declarations
+}
+
+// hasFunctionDeclarations 判断 tools 列表中是否存在 functionDeclarations。
+// Antigravity 上游在启用 built-in tool（server-side，如 codeExecution / googleSearch）
+// 与 Function calling 共存时会返回 400，要求显式设置
+// tool_config.include_server_side_tool_invocations=true。
+// 由于 Antigravity agent 模型端默认启用 built-in 工具，只要请求带了 function 声明就该打开。
+func hasFunctionDeclarations(tools []GeminiToolDeclaration) bool {
+	for _, t := range tools {
+		if len(t.FunctionDeclarations) > 0 {
+			return true
+		}
+	}
+	return false
 }
