@@ -2289,9 +2289,32 @@ func (s *adminServiceImpl) SetAccountError(ctx context.Context, id int64, errorM
 }
 
 func (s *adminServiceImpl) SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error) {
+	// 手动切为可调度前，若账号当前处于 quota_guard 自动暂停中，
+	// 则写入豁免标志并清理 paused_reason。豁免会在用量显著回落后由 QuotaGuard 服务自动清除。
+	var extraUpdates map[string]any
+	if schedulable {
+		if prev, err := s.accountRepo.GetByID(ctx, id); err == nil && prev != nil {
+			if strExtra(prev.Extra, quotaGuardPausedReasonKey) != "" {
+				extraUpdates = map[string]any{
+					quotaGuardSuppressedKey:   true,
+					quotaGuardPausedReasonKey: "",
+					quotaGuardPausedAtKey:     "",
+				}
+			}
+		}
+	}
+
 	if err := s.accountRepo.SetSchedulable(ctx, id, schedulable); err != nil {
 		return nil, err
 	}
+	if len(extraUpdates) > 0 {
+		if err := s.accountRepo.UpdateExtra(ctx, id, extraUpdates); err != nil {
+			// 非致命：schedulable 已经改成功，豁免标志写失败只会导致下轮 QuotaGuard 再次暂停——
+			// 记日志即可，不回滚 schedulable。
+			slog.Warn("quota_guard.suppress_write_failed", "account_id", id, "error", err)
+		}
+	}
+
 	updated, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err

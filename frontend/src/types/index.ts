@@ -769,6 +769,11 @@ export interface Account {
   temp_unschedulable_until: string | null
   temp_unschedulable_reason: string | null
 
+  // QuotaGuard 自动暂停标记（仅 Anthropic OAuth / Antigravity）
+  quota_guard_paused_reason?: string
+  quota_guard_paused_at?: string
+  quota_guard_suppressed?: boolean
+
   // Session window fields (5-hour window)
   session_window_start: string | null
   session_window_end: string | null

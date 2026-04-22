@@ -144,6 +144,26 @@ func ProvideAccountExpiryService(accountRepo AccountRepository) *AccountExpirySe
 	return svc
 }
 
+// ProvideAccountQuotaGuardService creates and starts AccountQuotaGuardService.
+// 配额守护：周期扫描 OAuth 账号用量，触达阈值自动暂停；可被管理员手动豁免。
+func ProvideAccountQuotaGuardService(accountRepo AccountRepository, usageSvc *AccountUsageService, cfg *config.Config) *AccountQuotaGuardService {
+	enabled := false
+	threshold := 0.9
+	interval := time.Minute
+	if cfg != nil {
+		enabled = cfg.QuotaGuard.Enabled
+		if cfg.QuotaGuard.Threshold > 0 {
+			threshold = cfg.QuotaGuard.Threshold
+		}
+		if cfg.QuotaGuard.IntervalSeconds > 0 {
+			interval = time.Duration(cfg.QuotaGuard.IntervalSeconds) * time.Second
+		}
+	}
+	svc := NewAccountQuotaGuardService(accountRepo, usageSvc, enabled, threshold, interval)
+	svc.Start()
+	return svc
+}
+
 // ProvideSubscriptionExpiryService creates and starts SubscriptionExpiryService.
 func ProvideSubscriptionExpiryService(userSubRepo UserSubscriptionRepository) *SubscriptionExpiryService {
 	svc := NewSubscriptionExpiryService(userSubRepo, time.Minute)
@@ -443,6 +463,7 @@ var ProviderSet = wire.NewSet(
 	ProvideUpdateService,
 	ProvideTokenRefreshService,
 	ProvideAccountExpiryService,
+	ProvideAccountQuotaGuardService,
 	ProvideSubscriptionExpiryService,
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,

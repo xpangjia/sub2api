@@ -169,6 +169,12 @@ type Account struct {
 	TempUnschedulableUntil  *time.Time `json:"temp_unschedulable_until"`
 	TempUnschedulableReason string     `json:"temp_unschedulable_reason"`
 
+	// QuotaGuard 自动暂停信息（仅 Anthropic OAuth / Antigravity 可能出现）
+	// 从 extra 字段提取，前端据此显示徽章。
+	QuotaGuardPausedReason string `json:"quota_guard_paused_reason,omitempty"`
+	QuotaGuardPausedAt     string `json:"quota_guard_paused_at,omitempty"`
+	QuotaGuardSuppressed   bool   `json:"quota_guard_suppressed,omitempty"`
+
 	SessionWindowStart  *time.Time `json:"session_window_start"`
 	SessionWindowEnd    *time.Time `json:"session_window_end"`
 	SessionWindowStatus string     `json:"session_window_status"`

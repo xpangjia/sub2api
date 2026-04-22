@@ -2438,7 +2438,11 @@ export default {
         creditsExhausted: '积分已用尽',
         creditsExhaustedUntil: 'AI Credits 已用尽，预计 {time} 恢复',
         overloadedUntil: '负载过重，重置时间：{time}',
-        viewTempUnschedDetails: '查看临时不可调度详情'
+        viewTempUnschedDetails: '查看临时不可调度详情',
+        quotaGuardBadge: '配额守护·{reason}',
+        quotaGuardTooltip: '{reason} 维度已达 90%，配额守护已自动暂停此账号；回落至阈值以下会自动恢复。',
+        quotaGuardSuppressedBadge: '配额守护·已豁免',
+        quotaGuardSuppressedTooltip: '管理员已手动解除配额守护，用量显著回落后会自动重新启用监管。'
       },
       tempUnschedulable: {
         title: '临时不可调度',
@@ -3177,6 +3181,14 @@ export default {
       imageTestMode: '模式：生图测试',
       imagePreview: '生成结果：',
       imageReceived: '已收到第 {count} 张测试图片',
+      // Antigravity phone verification URL
+      antigravityPhoneVerifyDetected: '检测到手机号验证链接',
+      antigravityPhoneVerifyOpenDialog: '查看链接',
+      antigravityPhoneVerifyTitle: 'Antigravity 需要手机号验证',
+      antigravityPhoneVerifyHint: '上游返回错误中包含一个需要完成手机号验证的链接，请复制后在浏览器中打开完成验证：',
+      antigravityPhoneVerifyCopy: '复制链接',
+      antigravityPhoneVerifyOpen: '浏览器打开',
+      antigravityPhoneVerifyCopied: '验证链接已复制',
       // Stats Modal
       viewStats: '查看统计',
       usageStatistics: '使用统计',

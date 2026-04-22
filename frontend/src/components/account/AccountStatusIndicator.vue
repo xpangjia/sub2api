@@ -133,6 +133,33 @@
       </div>
     </div>
 
+    <!-- QuotaGuard Auto-Paused Indicator -->
+    <div v-if="account.quota_guard_paused_reason" class="group relative">
+      <span
+        class="inline-flex items-center gap-1 rounded bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+      >
+        <Icon name="exclamationTriangle" size="xs" :stroke-width="2" />
+        {{ t('admin.accounts.status.quotaGuardBadge', { reason: account.quota_guard_paused_reason }) }}
+      </span>
+      <div
+        class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 whitespace-normal rounded bg-gray-900 px-3 py-2 text-center text-xs leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+      >
+        {{ t('admin.accounts.status.quotaGuardTooltip', { reason: account.quota_guard_paused_reason }) }}
+        <div
+          class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"
+        ></div>
+      </div>
+    </div>
+
+    <!-- QuotaGuard Manually Suppressed Indicator -->
+    <span
+      v-else-if="account.quota_guard_suppressed"
+      class="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+      :title="t('admin.accounts.status.quotaGuardSuppressedTooltip')"
+    >
+      {{ t('admin.accounts.status.quotaGuardSuppressedBadge') }}
+    </span>
+
     <!-- Overload Indicator (529) -->
     <div v-if="isOverloaded" class="group relative">
       <span

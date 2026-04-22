@@ -428,11 +428,22 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					}
 				}
 				wroteFallback := h.ensureForwardErrorResponse(c, streamStarted)
+				// DEBUG body dump for antigravity 400 diagnosis (胖佳 2026-04-21)
+				// 仅 antigravity 平台输出，避免污染日志；定位后删除。
+				bodyPreview := ""
+				if account.Platform == service.PlatformAntigravity && len(body) > 0 {
+					if len(body) > 20000 {
+						bodyPreview = string(body[:20000]) + "...[truncated]"
+					} else {
+						bodyPreview = string(body)
+					}
+				}
 				forwardFailedFields := []zap.Field{
 					zap.Int64("account_id", account.ID),
 					zap.String("account_name", account.Name),
 					zap.String("account_platform", account.Platform),
 					zap.Bool("fallback_error_response_written", wroteFallback),
+					zap.String("debug_request_body", bodyPreview),
 					zap.Error(err),
 				}
 				if account.Proxy != nil {
@@ -770,11 +781,22 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					}
 				}
 				wroteFallback := h.ensureForwardErrorResponse(c, streamStarted)
+				// DEBUG body dump for antigravity 400 diagnosis (胖佳 2026-04-21)
+				// 仅 antigravity 平台输出，避免污染日志；定位后删除。
+				bodyPreview := ""
+				if account.Platform == service.PlatformAntigravity && len(body) > 0 {
+					if len(body) > 20000 {
+						bodyPreview = string(body[:20000]) + "...[truncated]"
+					} else {
+						bodyPreview = string(body)
+					}
+				}
 				forwardFailedFields := []zap.Field{
 					zap.Int64("account_id", account.ID),
 					zap.String("account_name", account.Name),
 					zap.String("account_platform", account.Platform),
 					zap.Bool("fallback_error_response_written", wroteFallback),
+					zap.String("debug_request_body", bodyPreview),
 					zap.Error(err),
 				}
 				if account.Proxy != nil {

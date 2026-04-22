@@ -109,6 +109,24 @@
           </div>
         </div>
 
+        <!-- Antigravity phone verification URL hint (shown inline when detected) -->
+        <div
+          v-if="phoneVerificationUrl"
+          class="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-medium text-amber-700 dark:text-amber-300">
+              {{ t('admin.accounts.antigravityPhoneVerifyDetected') }}
+            </span>
+            <button
+              @click="openPhoneUrlDialog"
+              class="rounded-lg bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600"
+            >
+              {{ t('admin.accounts.antigravityPhoneVerifyOpenDialog') }}
+            </button>
+          </div>
+        </div>
+
         <!-- Copy Button -->
         <button
           v-if="outputLines.length > 0"
@@ -228,6 +246,50 @@
       </div>
     </template>
   </BaseDialog>
+
+  <!-- Phone verification URL popup (Antigravity only) -->
+  <BaseDialog
+    :show="showPhoneUrlDialog"
+    :title="t('admin.accounts.antigravityPhoneVerifyTitle')"
+    width="normal"
+    :z-index="60"
+    @close="showPhoneUrlDialog = false"
+  >
+    <div class="space-y-3">
+      <p class="text-sm text-gray-600 dark:text-gray-300">
+        {{ t('admin.accounts.antigravityPhoneVerifyHint') }}
+      </p>
+      <div
+        class="break-all rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-sm text-gray-800 dark:border-dark-500 dark:bg-dark-700 dark:text-gray-100"
+      >
+        {{ phoneVerificationUrl }}
+      </div>
+    </div>
+    <template #footer>
+      <div class="flex justify-end gap-3">
+        <button
+          @click="showPhoneUrlDialog = false"
+          class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
+        >
+          {{ t('common.close') }}
+        </button>
+        <a
+          :href="phoneVerificationUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="rounded-lg border border-primary-500 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-500/10"
+        >
+          {{ t('admin.accounts.antigravityPhoneVerifyOpen') }}
+        </a>
+        <button
+          @click="copyPhoneUrl"
+          class="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600"
+        >
+          {{ t('admin.accounts.antigravityPhoneVerifyCopy') }}
+        </button>
+      </div>
+    </template>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
@@ -268,6 +330,8 @@ const status = ref<'idle' | 'connecting' | 'success' | 'error'>('idle')
 const outputLines = ref<OutputLine[]>([])
 const streamingContent = ref('')
 const errorMessage = ref('')
+const phoneVerificationUrl = ref('')
+const showPhoneUrlDialog = ref(false)
 const availableModels = ref<ClaudeModel[]>([])
 const selectedModelId = ref('')
 const testPrompt = ref('')
@@ -359,6 +423,54 @@ const resetState = () => {
   errorMessage.value = ''
   generatedImages.value = []
   previewImageUrl.value = ''
+  phoneVerificationUrl.value = ''
+  showPhoneUrlDialog.value = false
+}
+
+// 从 Antigravity 测试错误信息中抽取需要用户完成手机号验证的 URL。
+// 上游常见格式：JSON 中 message/description 字段包含类似
+// "...please verify ... at https://console.cloud.google.com/... " 或 consumer_harm / abuse 链接。
+const extractPhoneVerificationUrl = (raw: string): string => {
+  if (!raw) return ''
+  const urlRegex = /https?:\/\/[^\s"'<>)\]}]+/gi
+  const urls = raw.match(urlRegex) || []
+  if (urls.length === 0) return ''
+  const cleaned = urls.map((u) => u.replace(/[.,;:!?)\]}>]+$/g, ''))
+  const hintKeywords = [
+    'phone',
+    'verify',
+    'verification',
+    'abuse',
+    'consumer_harm',
+    'consumerharm',
+    'accounts.google.com',
+    'myaccount.google.com'
+  ]
+  const hit = cleaned.find((u) => {
+    const lower = u.toLowerCase()
+    return hintKeywords.some((kw) => lower.includes(kw))
+  })
+  return hit || cleaned[0] || ''
+}
+
+const tryExtractPhoneUrl = () => {
+  if (props.account?.platform !== 'antigravity') return
+  const url = extractPhoneVerificationUrl(errorMessage.value)
+  if (url) {
+    phoneVerificationUrl.value = url
+    showPhoneUrlDialog.value = true
+  }
+}
+
+const openPhoneUrlDialog = () => {
+  if (phoneVerificationUrl.value) {
+    showPhoneUrlDialog.value = true
+  }
+}
+
+const copyPhoneUrl = () => {
+  if (!phoneVerificationUrl.value) return
+  copyToClipboard(phoneVerificationUrl.value, t('admin.accounts.antigravityPhoneVerifyCopied'))
 }
 
 const handleClose = () => {
@@ -459,6 +571,7 @@ const startTest = async () => {
     const msg = error instanceof Error ? error.message : 'Unknown error'
     errorMessage.value = msg
     addLine(`Error: ${msg}`, 'text-red-400')
+    tryExtractPhoneUrl()
   }
 }
 
@@ -515,6 +628,7 @@ const handleEvent = (event: {
       } else {
         status.value = 'error'
         errorMessage.value = event.error || 'Test failed'
+        tryExtractPhoneUrl()
       }
       break
 
@@ -525,6 +639,7 @@ const handleEvent = (event: {
         addLine(streamingContent.value, 'text-green-300')
         streamingContent.value = ''
       }
+      tryExtractPhoneUrl()
       break
   }
 }

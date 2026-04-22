@@ -82,6 +82,7 @@ type Config struct {
 	Dashboard               DashboardCacheConfig          `mapstructure:"dashboard_cache"`
 	DashboardAgg            DashboardAggregationConfig    `mapstructure:"dashboard_aggregation"`
 	UsageCleanup            UsageCleanupConfig            `mapstructure:"usage_cleanup"`
+	QuotaGuard              QuotaGuardConfig              `mapstructure:"quota_guard"`
 	Concurrency             ConcurrencyConfig             `mapstructure:"concurrency"`
 	TokenRefresh            TokenRefreshConfig            `mapstructure:"token_refresh"`
 	RunMode                 string                        `mapstructure:"run_mode" yaml:"run_mode"`
@@ -1162,6 +1163,14 @@ type DashboardAggregationRetentionConfig struct {
 }
 
 // UsageCleanupConfig 使用记录清理任务配置
+// QuotaGuardConfig 配额守护：周期扫描 Anthropic OAuth + Antigravity 账号，
+// 任一用量维度触达阈值则自动暂停调度；管理员手动开启时写豁免标志。
+type QuotaGuardConfig struct {
+	Enabled         bool    `mapstructure:"enabled"`          // 总开关
+	Threshold       float64 `mapstructure:"threshold"`        // 0-1，例如 0.9 表示 90%
+	IntervalSeconds int     `mapstructure:"interval_seconds"` // 扫描周期
+}
+
 type UsageCleanupConfig struct {
 	// Enabled: 是否启用清理任务执行器
 	Enabled bool `mapstructure:"enabled"`
@@ -1600,6 +1609,10 @@ func setDefaults() {
 	viper.SetDefault("dashboard_aggregation.recompute_days", 2)
 
 	// Usage cleanup task
+	viper.SetDefault("quota_guard.enabled", true)
+	viper.SetDefault("quota_guard.threshold", 0.9)
+	viper.SetDefault("quota_guard.interval_seconds", 60)
+
 	viper.SetDefault("usage_cleanup.enabled", true)
 	viper.SetDefault("usage_cleanup.max_range_days", 31)
 	viper.SetDefault("usage_cleanup.batch_size", 5000)

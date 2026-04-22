@@ -2249,7 +2249,11 @@ export default {
         creditsExhausted: 'Credits Exhausted',
         creditsExhaustedUntil: 'AI Credits exhausted, expected recovery at {time}',
         overloadedUntil: 'Overloaded until {time}',
-        viewTempUnschedDetails: 'View temp unschedulable details'
+        viewTempUnschedDetails: 'View temp unschedulable details',
+        quotaGuardBadge: 'Quota Guard · {reason}',
+        quotaGuardTooltip: '{reason} bucket reached 90%. Quota Guard auto-paused this account; it will resume automatically when usage drops.',
+        quotaGuardSuppressedBadge: 'Quota Guard · Suppressed',
+        quotaGuardSuppressedTooltip: 'Admin manually re-enabled scheduling. Guard will re-engage after usage drops significantly.'
       },
       columns: {
         name: 'Name',
@@ -3047,6 +3051,14 @@ export default {
       imageTestMode: 'Mode: Image generation test',
       imagePreview: 'Generated images:',
       imageReceived: 'Received test image #{count}',
+      // Antigravity phone verification URL
+      antigravityPhoneVerifyDetected: 'Phone verification URL detected',
+      antigravityPhoneVerifyOpenDialog: 'View URL',
+      antigravityPhoneVerifyTitle: 'Antigravity phone verification required',
+      antigravityPhoneVerifyHint: 'The upstream error contains a URL that requires phone verification. Copy it and open it in your browser to complete verification:',
+      antigravityPhoneVerifyCopy: 'Copy URL',
+      antigravityPhoneVerifyOpen: 'Open in browser',
+      antigravityPhoneVerifyCopied: 'Verification URL copied',
       // Stats Modal
       viewStats: 'View Stats',
       usageStatistics: 'Usage Statistics',

@@ -225,6 +225,19 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		GroupIDs:                a.GroupIDs,
 	}
 
+	// 提取 QuotaGuard 自动暂停标记（所有 platform 共用 extra key）
+	if a.Extra != nil {
+		if v, ok := a.Extra["quota_guard_paused_reason"].(string); ok && v != "" {
+			out.QuotaGuardPausedReason = v
+		}
+		if v, ok := a.Extra["quota_guard_paused_at"].(string); ok && v != "" {
+			out.QuotaGuardPausedAt = v
+		}
+		if v, ok := a.Extra["quota_guard_suppressed"].(bool); ok {
+			out.QuotaGuardSuppressed = v
+		}
+	}
+
 	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）
 	if a.IsAnthropicOAuthOrSetupToken() {
 		if limit := a.GetWindowCostLimit(); limit > 0 {
