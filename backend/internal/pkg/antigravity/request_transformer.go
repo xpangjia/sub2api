@@ -89,13 +89,7 @@ func TransformClaudeToGeminiWithOptions(claudeReq *ClaudeRequest, projectID, map
 	toolIDToName := make(map[string]string)
 
 	// 检测是否有 web_search 工具
-	// 注意：仅当请求 tools 列表中 "只" 包含 web_search、没有其他 function tools 时
-	// 才把整个请求降级为 web_search requestType 并切换到 webSearchFallbackModel。
-	// 若同时存在其他 function tools（OpenClaw 等客户端在 tools 里列了 web_search 作为客户端自有
-	// 能力声明，搭配 read/write/exec 等业务 function），混合场景下 Antigravity 会返回 400：
-	// "Please enable tool_config.include_server_side_tool_invocations to use Built-in tools with
-	// Function calling."（v1internal 不认该字段）——因此混合时忽略 web_search 标记，按普通 agent 处理。
-	hasWebSearchTool := onlyWebSearchTool(claudeReq.Tools)
+	hasWebSearchTool := hasWebSearchTool(claudeReq.Tools)
 	requestType := "agent"
 	targetModel := mappedModel
 	if hasWebSearchTool {
@@ -668,24 +662,6 @@ func hasWebSearchTool(tools []ClaudeTool) bool {
 	return false
 }
 
-// onlyWebSearchTool 返回 true 当且仅当 tools 中存在 web_search 且不含任何其它有效 function tool。
-// 有其它 function tool 时必须避免把请求降级为 built-in web_search 路径，否则
-// 混合 functionDeclarations + googleSearch 会被 Antigravity v1internal 拒绝。
-func onlyWebSearchTool(tools []ClaudeTool) bool {
-	sawWebSearch := false
-	for _, tool := range tools {
-		if isWebSearchTool(tool) {
-			sawWebSearch = true
-			continue
-		}
-		if strings.TrimSpace(tool.Name) == "" {
-			continue
-		}
-		return false
-	}
-	return sawWebSearch
-}
-
 func isWebSearchTool(tool ClaudeTool) bool {
 	if strings.HasPrefix(tool.Type, "web_search") || tool.Type == "google_search" {
 		return true
@@ -764,11 +740,7 @@ func buildTools(tools []ClaudeTool) []GeminiToolDeclaration {
 			FunctionDeclarations: funcDecls,
 		})
 	}
-	// Built-in GoogleSearch 只能在 "纯 web_search"（无任何其它 function tool）时附加；
-	// 否则混合 functionDeclarations + googleSearch 会触发 Antigravity 400:
-	// "Built-in tools with Function calling"。混合场景下客户端的 web_search 是声明而非调用，
-	// 静默丢弃即可（客户端自行处理搜索）。
-	if hasWebSearch && len(funcDecls) == 0 {
+	if hasWebSearch {
 		declarations = append(declarations, GeminiToolDeclaration{
 			GoogleSearch: &GeminiGoogleSearch{
 				EnhancedContent: &GeminiEnhancedContent{
