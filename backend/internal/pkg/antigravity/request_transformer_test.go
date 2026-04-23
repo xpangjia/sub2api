@@ -263,7 +263,13 @@ func TestBuildTools_CustomTypeTools(t *testing.T) {
 	}
 }
 
-func TestBuildTools_PreservesWebSearchAlongsideFunctions(t *testing.T) {
+// TestBuildTools_DropsGoogleSearchWhenMixedWithFunctions 反映本地为 OpenClaw 等客户端做的 workaround：
+// 混合场景下 Antigravity v1internal 会返回 400；其官方推荐的
+// tool_config.include_server_side_tool_invocations 字段实测不被接受
+// （Unknown name "includeServerSideToolInvocations"）。本地通过 onlyWebSearchTool 静默丢弃
+// GoogleSearch，仅保留 functionDeclarations。与 upstream 行为不一致。
+// 见 docs/LOCAL-CUSTOMIZATIONS.md 的「Antigravity 混合 tools 丢弃 GoogleSearch」条目。
+func TestBuildTools_DropsGoogleSearchWhenMixedWithFunctions(t *testing.T) {
 	tools := []ClaudeTool{
 		{
 			Name:        "get_weather",
@@ -277,13 +283,10 @@ func TestBuildTools_PreservesWebSearchAlongsideFunctions(t *testing.T) {
 	}
 
 	result := buildTools(tools)
-	require.Len(t, result, 2)
+	require.Len(t, result, 1, "mixed tools must drop GoogleSearch to avoid Antigravity 400")
 	require.Len(t, result[0].FunctionDeclarations, 1)
 	require.Equal(t, "get_weather", result[0].FunctionDeclarations[0].Name)
-	require.NotNil(t, result[1].GoogleSearch)
-	require.NotNil(t, result[1].GoogleSearch.EnhancedContent)
-	require.NotNil(t, result[1].GoogleSearch.EnhancedContent.ImageSearch)
-	require.Equal(t, 5, result[1].GoogleSearch.EnhancedContent.ImageSearch.MaxResultCount)
+	require.Nil(t, result[0].GoogleSearch)
 }
 
 func TestBuildGenerationConfig_ThinkingDynamicBudget(t *testing.T) {
@@ -424,7 +427,9 @@ func TestTransformClaudeToGeminiWithOptions_PreservesBillingHeaderSystemBlock(t 
 	}
 }
 
-func TestTransformClaudeToGeminiWithOptions_PreservesWebSearchAlongsideFunctions(t *testing.T) {
+// TestTransformClaudeToGeminiWithOptions_DropsGoogleSearchWhenMixedWithFunctions 同上方 TestBuildTools_Drops...
+// 覆盖端到端 transform 路径。详细背景见 docs/LOCAL-CUSTOMIZATIONS.md。
+func TestTransformClaudeToGeminiWithOptions_DropsGoogleSearchWhenMixedWithFunctions(t *testing.T) {
 	claudeReq := &ClaudeRequest{
 		Model: "claude-3-5-sonnet-latest",
 		Messages: []ClaudeMessage{
@@ -451,8 +456,8 @@ func TestTransformClaudeToGeminiWithOptions_PreservesWebSearchAlongsideFunctions
 
 	var req V1InternalRequest
 	require.NoError(t, json.Unmarshal(body, &req))
-	require.Len(t, req.Request.Tools, 2)
+	require.Len(t, req.Request.Tools, 1, "mixed tools must drop GoogleSearch to avoid Antigravity 400")
 	require.Len(t, req.Request.Tools[0].FunctionDeclarations, 1)
 	require.Equal(t, "get_weather", req.Request.Tools[0].FunctionDeclarations[0].Name)
-	require.NotNil(t, req.Request.Tools[1].GoogleSearch)
+	require.Nil(t, req.Request.Tools[0].GoogleSearch)
 }

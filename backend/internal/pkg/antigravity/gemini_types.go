@@ -113,11 +113,6 @@ type GeminiImageSearch struct {
 // GeminiToolConfig Gemini 工具配置
 type GeminiToolConfig struct {
 	FunctionCallingConfig *GeminiFunctionCallingConfig `json:"functionCallingConfig,omitempty"`
-	// IncludeServerSideToolInvocations 允许内置（server-side）工具与 Function calling 共存
-	// 当请求同时包含 functionDeclarations 与 googleSearch / codeExecution 等 built-in tool 时，
-	// Antigravity 上游会返回 400 "Please enable tool_config.include_server_side_tool_invocations
-	// to use Built-in tools with Function calling."，需显式设为 true。
-	IncludeServerSideToolInvocations *bool `json:"includeServerSideToolInvocations,omitempty"`
 }
 
 // GeminiFunctionCallingConfig 函数调用配置
