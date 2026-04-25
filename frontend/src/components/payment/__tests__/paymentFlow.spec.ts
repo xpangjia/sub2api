@@ -33,7 +33,7 @@ function createOrderResult(overrides: Partial<CreateOrderResult> = {}): CreateOr
 }
 
 describe('getVisibleMethods', () => {
-  it('filters hidden provider methods and normalizes aliases', () => {
+  it('normalizes provider aliases and keeps stripe as a top-level method', () => {
     const visible = getVisibleMethods({
       alipay_direct: methodLimit({ single_min: 5 }),
       wxpay: methodLimit({ single_max: 100 }),
@@ -43,6 +43,7 @@ describe('getVisibleMethods', () => {
     expect(visible).toEqual({
       alipay: methodLimit({ single_min: 5 }),
       wxpay: methodLimit({ single_max: 100 }),
+      stripe: methodLimit({ fee_rate: 3 }),
     })
   })
 
@@ -74,6 +75,19 @@ describe('decidePaymentLaunch', () => {
     expect(decision.stripeMethod).toBe('alipay')
     expect(decision.recovery.resumeToken).toBe('resume-1')
     expect(decision.recovery.outTradeNo).toBe('')
+  })
+
+  it('routes Stripe button click to the full Payment Element without a preselected sub-method', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      client_secret: 'cs_test',
+    }), {
+      visibleMethod: 'stripe',
+      orderType: 'balance',
+      isMobile: false,
+    })
+
+    expect(decision.kind).toBe('stripe_route')
+    expect(decision.stripeMethod).toBeUndefined()
   })
 
   it('uses Stripe route flow for mobile WeChat client secret', () => {
@@ -190,12 +204,14 @@ describe('buildCreateOrderPayload', () => {
       paymentType: 'alipay_direct',
       orderType: 'balance',
       origin: 'https://app.example.com/',
+      isMobile: true,
       isWechatBrowser: false,
     })).toEqual({
       amount: 88,
       payment_type: 'alipay',
       order_type: 'balance',
       return_url: 'https://app.example.com/payment/result',
+      is_mobile: true,
       payment_source: 'hosted_redirect',
     })
   })
@@ -207,6 +223,7 @@ describe('buildCreateOrderPayload', () => {
       orderType: 'subscription',
       planId: 7,
       origin: 'https://app.example.com',
+      isMobile: false,
       isWechatBrowser: true,
     })).toEqual({
       amount: 128,
@@ -214,6 +231,7 @@ describe('buildCreateOrderPayload', () => {
       order_type: 'subscription',
       plan_id: 7,
       return_url: 'https://app.example.com/payment/result',
+      is_mobile: false,
       payment_source: 'wechat_in_app_resume',
     })
   })
